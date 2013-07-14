@@ -35,16 +35,13 @@ interface DAO
     public static function Index ( $indexName );
     
     public static function FetchByPrimary ( $keyValue, $force = FALSE );
-    public static function FetchMany ( Array $crit, $limit = FALSE, $offset = 0 );
-    public static function FetchByIndex ( $indexName, Array $crit, $limit = FALSE, $offset = 0 );
+    public static function Fetch( $indexName = 'PRIMARY', Array $crit = [ ], $limit = FALSE, $offset = 0, $force = FALSE );
     
-    public static function StoreByPrimary ( Array $row, $fetchResult = TRUE );
-    public static function StoreMany ( Array & $rows, Array $crit, $limit = FALSE, $offset = 0, $fetchResult = TRUE );
-    public static function StoreByIndex ( Array & $rows, $indexName, Array $crit, $limit = FALSE, $offset = 0, $fetchResult = TRUE );
+    public static function RemoveByPrimary ( $keyValue, $fetchRemoved = FALSE );
+    public static function Remove ( $indexName = 'PRIMARY', Array $crit = [ ], $limit = FALSE, $offset = 0, $fetchRemoved = FALSE );
     
-    public static function RemoveByPrimary ( $keyValue, $fetchRemoved = TRUE );
-    public static function RemoveMany ( Array $crit, $limit = FALSE, $offset = 0, $fetchRemoved = TRUE );
-    public static function RemoveByIndex ( $indexName, Array $crit, $limit = FALSE, $offset = 0, $fetchRemoved = TRUE );
+    public static function StoreByPrimary ( Array & $row, $fetchResult = TRUE );
+    public static function Store ( Array & $rows, $indexName = 'PRIMARY', $fetchResult = TRUE );
     
 }
 ?>

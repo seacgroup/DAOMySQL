@@ -38,7 +38,7 @@ class ADAOMySQL {
      * @param type $options
      * @return boolean
      */
-    public static function Connect($options = []) {
+    public static function Connect( $options = [ ] ) {
         if (empty(static::$_Connection)) {
             if (!isset($options['dbname']) || !is_string($options['dbname']))
                 $databaseName = defined($const = get_called_class() . '::DATABASE_NAME') ? constant($const) : '';
@@ -55,12 +55,17 @@ class ADAOMySQL {
      * 
      * @return type
      */
-    public static function Close() {
+    public static function Close ( ) {
         $result = empty(static::$_Connection) ? TRUE : static::$_Connection->close();
         static::$_Connection = NULL;
         return $result;
     }
     
+    /**
+     * 
+     * @param type $value
+     * @return string
+     */
     public static function ToValue ( $value )
     {
         if ( $value === NULL )
@@ -72,6 +77,30 @@ class ADAOMySQL {
         if ( is_numeric( $value ) )
             return $value;
         return json_encode( $value );
+    }
+    
+    /**
+     * 
+     * @param type $values
+     */
+    public static function ToValueList ( $values )
+    {
+        $result = [ ];
+        foreach ( $values as $value )
+        {
+            if ( $value === NULL )
+                $result[] = 'NULL';
+            elseif ( is_string( $value ) )
+                $result[] = "'" . addslashes( $value ) . "'";
+            elseif ( is_bool( $value ) )
+                $result[] = $value ? 1 : 0;
+            elseif ( is_numeric( $value ) )
+                $result[] = $value;
+            else
+                $result[] = json_encode( $value );
+        }
+        
+        return $result;
     }
     
     /**
@@ -93,16 +122,45 @@ class ADAOMySQL {
      * @param array $row
      * @return string
      */
-    public static function ToCriteria ( Array $row )
+    public static function ToCriteria ( Array $crit )
     {
         $pairs = [ ];
-        foreach ( array_keys( static::$_Columns ) as $name )
-            if ( isset( $row[$name] ) )
+        foreach ( array_keys( static::$_Columns ) as $name => $finfo )
+            if ( isset( $crit[$name] ) )
             {
-                if ( $row[$name] === NULL )
+                if ( $crit[$name] === NULL )
                     $pairs[] = '`' . $name . "` IS NULL";
-                else
-                    $pairs[] = '`' . $name . "` = " . self::ToValue( $row[$name] );
+                elseif ( is_array( $crit[$name] ) ) {
+                    $set = [ ];
+                    foreach ( $crit[$name] as $value )
+                        $set[] = self::ToValue( $value );
+                    $pairs[] = '`' . $name . '` IN ( ' . $set . ' )';
+                } else
+                    $pairs[] = '`' . $name . "` = " . self::ToValue( $crit[$name] );
+            }
+        return $pairs;
+    }
+    
+    /**
+     * 
+     * @param array $row
+     * @return string
+     */
+    public static function ToIndexCriteria ( $indexName, Array $crit )
+    {
+        $pairs = [ ];
+        foreach ( array_keys( static::$_Indexes ) as $name )
+            if ( isset( $crit[$name] ) )
+            {
+                if ( $crit[$name] === NULL )
+                    $pairs[] = '`' . $name . "` IS NULL";
+                elseif ( is_array( $crit[$name] ) ) {
+                    $set = [ ];
+                    foreach ( $crit[$name] as $value )
+                        $set[] = self::ToValue( $value );
+                    $pairs[] = '`' . $name . '` IN ( ' . $set . ' )';
+                } else
+                    $pairs[] = '`' . $name . "` = " . self::ToValue( $crit[$name] );
             }
         return $pairs;
     }
@@ -116,6 +174,7 @@ class ADAOMySQL {
     
     /**
      * 
+     * @return type
      */
     public static function Indexes() {
         return array_keys( static::$_Indexes );
@@ -123,7 +182,8 @@ class ADAOMySQL {
     
     /**
      * 
-     * @param string $indexName
+     * @param type $indexName
+     * @return type
      */
     public static function Index($indexName) {
         return static::$_Indexes[$indexName];
@@ -131,12 +191,13 @@ class ADAOMySQL {
     
     /**
      * 
-     * @param array $crit
-     * @param int $force
+     * @param type $keyValue
+     * @param type $force
+     * @return type
      */
     public static function FetchByPrimary($keyValue, $force = FALSE) {
         $query = 'SELECT * FROM `' . static::TABLE_NAME . '` WHERE `' . static::PRIMARY_KEY . '` = ' . self::ToValue( $keyValue );
-        $row = NULL;
+        $row = FALSE;
         if ( ( $result = static::$_Connection->query( $query, MYSQLI_USE_RESULT ) ) ) {
             $row = $result->fetch_assoc( );
             $result->close();
@@ -146,81 +207,35 @@ class ADAOMySQL {
     
     /**
      * 
+     * @param type $indexName
      * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param int $force
+     * @param type $limit
+     * @param type $offset
+     * @param type $force
+     * @return type
      */
-    public static function FetchMany(Array $crit, $limit = FALSE, $offset = 0, $force = FALSE) {
-        
-    }
-    
-    /**
-     * 
-     * @param string $indexName
-     * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param int $force
-     */
-    public static function FetchByIndex($indexName, Array $crit, $limit = FALSE, $offset = 0, $force = FALSE) {
-        
-    }
-    
-    /**
-     * 
-     * @param array $row
-     * @param mixed $crit
-     * @param boolean $fetchResult
-     */
-    public static function StoreByPrimary(Array $row, $fetchResult = TRUE) {
-        if ( isset( $row[static::PRIMARY_KEY] ) && ( $keyValue = $row[static::PRIMARY_KEY] ) ) {
-            $query = 'UPDATE `' . static::TABLE_NAME . '` SET ' . implode( ', ', self::ToNameValuePairs( $row ) ) . 'WHERE `' . static::PRIMARY_KEY . '` = ' . self::ToValue( $keyValue );
-//            var_dump( $query );
-            if ( ! static::$_Connection->query( $query, MYSQLI_STORE_RESULT ) )
-                return FALSE;
-        } else {
-            $query = 'INSERT INTO `' . static::TABLE_NAME . '` ( `' . implode( '`, `', array_keys( $row ) ) . "` ) VALUES ( '" . implode( "', '", array_values( $row ) ) . "' );";
-//            var_dump( $query );
-            if ( ! static::$_Connection->query( $query, MYSQLI_STORE_RESULT )
-                    || ! ( $keyValue = static::$_Connection->insert_id ) )
-                return FALSE;
+    public static function Fetch( $indexName = 'PRIMARY', Array $crit = [ ], $limit = FALSE, $offset = 0, $force = FALSE ) {
+        $query = 'SELECT * FROM `' . static::TABLE_NAME . '` WHERE ' . ( empty( $crit ) ? 1 : implode( ' AND ', self::ToIndexCriteria( $indexName, $crit ) ) );
+        if ( $limit )
+            $query .= ' LIMIT ' . $limit;
+        if ( $offset )
+            $query .= ' OFFSET ' . $offset;
+        $row = FALSE;
+        if ( ( $result = static::$_Connection->query( $query, MYSQLI_USE_RESULT ) ) ) {
+            $rows = $result->fetch_all( MYSQLI_ASSOC );
+            $result->close();
         }
-        return $fetchResult ? self::FetchByPrimary( $keyValue ) : $keyValue;
+        return $rows;
     }
     
     /**
      * 
-     * @param array $rows
-     * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param boolean $fetchResult
+     * @param type $keyValue
+     * @param type $fetchRemoved
+     * @return boolean
      */
-    public static function StoreMany(Array & $rows, Array $crit, $limit = FALSE, $offset = 0, $fetchResult = TRUE) {
-        
-    }
-    
-    /**
-     * 
-     * @param array $rows
-     * @param string $indexName
-     * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param boolean $fetchResult
-     */
-    public static function StoreByIndex(Array & $rows, $indexName, Array $crit, $limit = FALSE, $offset = 0, $fetchResult = TRUE) {
-        
-    }
-    
-    /**
-     * 
-     * @param array $crit
-     * @param boolean $fetchRemoved
-     */
-    public static function RemoveByPrimary($keyValue, $fetchRemoved = TRUE) {
-        $result = TRUE;
+    public static function RemoveByPrimary($keyValue, $fetchRemoved = FALSE) {
+        $result = $keyValue;
         if ( $fetchRemoved )
             $result = self::FetchByPrimary( $keyValue );
         $query = 'DELETE FROM `' . static::TABLE_NAME . '` WHERE `' . static::PRIMARY_KEY . '` = ' . self::ToValue( $keyValue );
@@ -231,25 +246,89 @@ class ADAOMySQL {
     
     /**
      * 
+     * @param type $indexName
      * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param boolean $fetchRemoved
+     * @param type $limit
+     * @param type $offset
+     * @param type $fetchRemoved
      */
-    public static function RemoveMany(Array $crit, $limit = FALSE, $offset = 0, $fetchRemoved = TRUE) {
+    public static function Remove ( $indexName = 'PRIMARY', Array $crit = [ ], $limit = FALSE, $offset = 0, $fetchRemoved = FALSE ) {
+        if ( $fetchRemoved ) {
+            $result = self::Fetch( $indexName, $crit, $limit, $offset );
+        }
+        $query = 'DELETE FROM `' . static::TABLE_NAME . '` WHERE ' . ( empty( $crit ) ? 1 : implode( ' AND ', self::ToIndexCriteria( $indexName, $crit ) ) );
+        if ( $limit )
+            $query .= ' LIMIT ' . $limit;
+        if ( $offset )
+            $query .= ' OFFSET ' . $offset;
+        if ( ! static::$_Connection->query( $query, MYSQLI_STORE_RESULT ) )
+            return FALSE;
+        return $fetchRemoved ? $result : static::$_Connection->affected_rows;
         
     }
     
     /**
      * 
-     * @param string $indexName
-     * @param array $crit
-     * @param int $limit
-     * @param int $offset
-     * @param boolean $fetchRemoved
+     * @param array $row
+     * @param type $fetchResult
+     * @return boolean
      */
-    public static function RemoveByIndex($indexName, Array $crit, $limit = FALSE, $offset = 0, $fetchRemoved = TRUE) {
+    public static function StoreByPrimary( Array & $row, $fetchResult = FALSE ) {
+        if ( isset( $row[static::PRIMARY_KEY] ) && ( $keyValue = $row[static::PRIMARY_KEY] ) ) {
+            $query = 'UPDATE `' . static::TABLE_NAME . '` SET ' . implode( ', ', self::ToNameValuePairs( $row ) ) . ' WHERE `' . static::PRIMARY_KEY . '` = ' . self::ToValue( $keyValue );
+            if ( ! static::$_Connection->query( $query, MYSQLI_STORE_RESULT ) )
+                return FALSE;
+        } else {
+            $query = 'INSERT INTO `' . static::TABLE_NAME . '` ( `' . implode( '`, `', array_keys( $row ) ) . "` ) VALUES ( '" . implode( "', '", array_values( $row ) ) . "' );";
+            if ( ! static::$_Connection->query( $query, MYSQLI_STORE_RESULT )
+                    || ! ( $keyValue = static::$_Connection->insert_id ) )
+                return FALSE;
+        }
         
+        if ( $fetchResult )
+            $row = self::FetchByPrimary( $keyValue );
+        return $keyValue;
     }
-
+    
+    /**
+     * 
+     * @param type $indexName
+     * @param array $row
+     * @param type $fetchResult
+     */
+    public static function Store ( Array & $rows, $indexName = 'PRIMARY', $fetchResult = FALSE ) {
+        $updateQuery = [ 'UPDATE `' . static::TABLE_NAME . '` SET ', & $pairs, ' WHERE `' . static::PRIMARY_KEY . '` = ', & $keyValue ];
+        $insertQuery = [ 'INSERT INTO `' . static::TABLE_NAME . '` ( ' , & $names, ' ) VALUES ( ', & $values, ' );' ];
+        $primaryValues = [ ];
+//        print_r( $rows );
+        foreach ( $rows as $row )
+        {
+            if ( isset( $row[static::PRIMARY_KEY][0] ) && ( $keyValue = $row[static::PRIMARY_KEY][0] ) ) {
+                $pairs = implode( ', ', self::ToNameValuePairs( $row ) );
+//                print_r( implode( '', $updateQuery ) );
+                if ( ! static::$_Connection->query( implode( '', $updateQuery ), MYSQLI_STORE_RESULT ) )
+                    continue;
+                $primaryValues[] = $keyValue;
+            } else {
+                $names = implode( ', ', array_keys( $row ) );
+                $values = implode( ', ', self::ToValueList( $row ) );
+//                print_r( implode( '', $insertQuery ) );
+                if ( ! static::$_Connection->query( implode( '', $insertQuery ), MYSQLI_STORE_RESULT )
+                        || ! ( $keyValue = static::$_Connection->insert_id ) )
+                    continue;
+                $primaryValues[] = $keyValue;
+            }
+        }
+//        print_r( $primaryValues );
+        
+        if ( $fetchResult ) {
+            $query = 'SELECT * FROM `' . static::TABLE_NAME . '` WHERE ' . implode( ' AND ', self::ToIndexCriteria( 'PRIMARY', $crit ) );
+            if ( ( $result = static::$_Connection->query( $query, MYSQLI_USE_RESULT ) ) ) {
+                $rows = $result->fetch_all( MYSQLI_ASSOC );
+                $result->close();
+            }
+        }
+        return $primaryValues;
+    }
+    
 }

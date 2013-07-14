@@ -28,12 +28,10 @@ readfile( $tfp );
 
 require_once $tfp;
 
-DaoMemory::Connect( [ 'user' => 'memory', 'pass' => '5un5h1n3' ] );
-print_r( DaoMemoryUsers::FetchByPrimary( 1 ) );
-print_r( $row = DaoMemoryUsers::StoreByPrimary( [
-    "username" => 'test6',
-    "userpassword" => 'test6',
-    "usernick" => 'test6',
+$row = [
+    "username" => 'test2',
+    "userpassword" => 'test2',
+    "usernick" => 'test2',
     "userage" => 25,
     "useremail" => 'lia@seachawaii.com',
     "userphone" => '+62 881276096972',
@@ -41,9 +39,18 @@ print_r( $row = DaoMemoryUsers::StoreByPrimary( [
     "userenabled" => 1,
     "usercreated" => '2013-07-14 00:06:55',
     "usermodified" => '2013-07-14 00:07:06'
-] ) );
-print_r( $row = DaoMemoryUsers::StoreByPrimary( $row ) );
+];
+
+$rows = [ & $row ];
+
+DaoMemory::Connect( [ 'user' => 'memory', 'pass' => '5un5h1n3' ] );
+print_r( DaoMemoryUsers::FetchByPrimary( 1 ) );
+print_r( $row['userid'] = DaoMemoryUsers::StoreByPrimary( $row ) );
 print_r( DaoMemoryUsers::RemoveByPrimary( $row['userid'] ) );
+
+print_r( DaoMemoryUsers::Store( $rows ) );
+print_r( DaoMemoryUsers::Fetch(  ) );
+print_r( DaoMemoryUsers::Remove( 'username', [ 'username' => 'test2' ] ) );
 ?>
         </pre>
     </body>
