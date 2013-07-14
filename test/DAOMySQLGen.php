@@ -24,7 +24,7 @@ foreach ( DAOMySQLGen::GetTableNames( $databaseName ) as $tableName )
 }
 fclose( $fh );
 DAOMySQLGen::Close( );
-readfile( $tfp );
+echo htmlentities( file_get_contents( $tfp ) );
 
 require_once $tfp;
 
